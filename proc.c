@@ -20,6 +20,26 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+extern struct proc proc[NPROC];
+void print_mem_layout() {
+  struct proc *p;
+
+  cprintf("Printing Memory Layout\n");
+  cprintf("PID\tNUM_PAGES\n");
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    if(p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING) {
+      if(p->pid >= 1) {
+        int num_pages = p->sz / PGSIZE;
+        if(p->sz % PGSIZE)
+          num_pages++;  // If not perfectly divisible, count extra page
+
+        cprintf("%d\t%d\n", p->pid, num_pages);
+      }
+    }
+  }
+}
+
 void
 pinit(void)
 {

@@ -51,6 +51,7 @@ struct proc {
   char name[16];               // Process name (debugging)
 };
 
+void print_mem_layout(void);
 // Process memory is laid out contiguously, low addresses first:
 //   text
 //   original data and bss

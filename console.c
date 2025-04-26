@@ -188,6 +188,8 @@ struct {
 
 #define C(x)  ((x)-'@')  // Control-x
 
+int check_cntrl_i=0;
+
 void
 consoleintr(int (*getc)(void))
 {
@@ -213,6 +215,9 @@ consoleintr(int (*getc)(void))
         consputc(BACKSPACE);
       }
       break;
+    case C('I'):
+      check_cntrl_i=1;
+      break;
     default:
       if(c != 0 && input.e-input.r < INPUT_BUF){
         c = (c == '\r') ? '\n' : c;
@@ -227,6 +232,12 @@ consoleintr(int (*getc)(void))
     }
   }
   release(&cons.lock);
+  if(check_cntrl_i)
+  {
+    cprintf("Ctrl+I is detected by xv6\n");
+    print_mem_layout();
+    check_cntrl_i=0;
+  }
   if(doprocdump) {
     procdump();  // now call procdump() wo. cons.lock held
   }
