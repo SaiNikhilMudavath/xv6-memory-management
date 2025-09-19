@@ -18,7 +18,7 @@
 #define NINODES 200
 
 // Disk layout:
-// [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
+// [ boot block | sb block | swap | log | inode blocks | free bit map | data blocks ]
 
 int nbitmap = FSSIZE/(BSIZE*8) + 1;
 int ninodeblocks = NINODES / IPB + 1;
@@ -91,16 +91,21 @@ main(int argc, char *argv[])
   }
 
   // 1 fs block = 1 disk sector
-  nmeta = 2 + nlog + ninodeblocks + nbitmap;
+  // Disk layout:
+  // [ boot block | sb block | swap | log | inode blocks | free bit map | data blocks ]
+  nmeta = 2 + SWAPBLOCKS + nlog + ninodeblocks + nbitmap;
   nblocks = FSSIZE - nmeta;
 
   sb.size = xint(FSSIZE);
   sb.nblocks = xint(nblocks);
   sb.ninodes = xint(NINODES);
   sb.nlog = xint(nlog);
-  sb.logstart = xint(2);
-  sb.inodestart = xint(2+nlog);
-  sb.bmapstart = xint(2+nlog+ninodeblocks);
+  sb.nswapblocks=xint(SWAPBLOCKS);
+  sb.swapstart=xint(2);
+  sb.logstart = xint(2+ SWAPBLOCKS);
+  sb.inodestart = xint(2+nlog + SWAPBLOCKS);
+  sb.bmapstart = xint(2+nlog+ninodeblocks + SWAPBLOCKS);
+
 
   printf("nmeta %d (boot, super, log blocks %u inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
          nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
@@ -113,6 +118,18 @@ main(int argc, char *argv[])
   memset(buf, 0, sizeof(buf));
   memmove(buf, &sb, sizeof(sb));
   wsect(1, buf);
+
+  // uchar bitmap[nbitmap*BSIZE];
+  // memset(bitmap,0,sizeof(bitmap));
+  // for(int i=0;i<SWAPBLOCKS;i++)
+  // {
+  //   int blockno=2+i;
+  //   bitmap[blockno/8]|=(1<<(blockno%8));
+  // }
+  // for(int i=0;i<nbitmap;i++)
+  // {
+  //   wsect(sb.bmapstart+i,bitmap+i*BSIZE);
+  // }
 
   rootino = ialloc(T_DIR);
   assert(rootino == ROOTINO);
@@ -241,13 +258,19 @@ balloc(int used)
   int i;
 
   printf("balloc: first %d blocks have been allocated\n", used);
-  assert(used < BSIZE*8);
-  bzero(buf, BSIZE);
-  for(i = 0; i < used; i++){
-    buf[i/8] = buf[i/8] | (0x1 << (i%8));
+  // assert(used < nblocks);
+  for(i=0;i<nbitmap;i++)
+  {
+    bzero(buf, BSIZE);
+    int b;
+    for(b = i*4096; (b < (i+1)*4096)&&(b<used); b++)
+    {
+      int bit=b-i*4096;
+      buf[bit/8] |= (0x1 << (bit%8));
+    }
+    // printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
+    wsect(sb.bmapstart+i, buf);
   }
-  printf("balloc: write bitmap block at sector %d\n", sb.bmapstart);
-  wsect(sb.bmapstart, buf);
 }
 
 #define min(a, b) ((a) < (b) ? (a) : (b))

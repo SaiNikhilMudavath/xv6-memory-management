@@ -7,6 +7,7 @@
 #include "x86.h"
 #include "elf.h"
 
+extern int count_mem_pages(struct proc*);
 int
 exec(char *path, char **argv)
 {
@@ -99,6 +100,8 @@ exec(char *path, char **argv)
   curproc->sz = sz;
   curproc->tf->eip = elf.entry;  // main
   curproc->tf->esp = sp;
+  int x=count_mem_pages(curproc);
+  curproc->rss=x;
   switchuvm(curproc);
   freevm(oldpgdir);
   return 0;

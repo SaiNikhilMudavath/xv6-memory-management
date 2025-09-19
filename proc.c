@@ -21,23 +21,23 @@ extern void trapret(void);
 static void wakeup1(void *chan);
 
 extern struct proc proc[NPROC];
+extern int count_mem_pages(struct proc*);
 void print_mem_layout() {
   struct proc *p;
 
-  cprintf("Printing Memory Layout\n");
-  cprintf("PID\tNUM_PAGES\n");
-
+  cprintf("PID NUM_PAGES\n");
+  acquire(&ptable.lock);
   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
     if(p->state == RUNNING || p->state == RUNNABLE || p->state == SLEEPING) {
       if(p->pid >= 1) {
-        int num_pages = p->sz / PGSIZE;
-        if(p->sz % PGSIZE)
-          num_pages++;  // If not perfectly divisible, count extra page
-
-        cprintf("%d\t%d\n", p->pid, num_pages);
+        int num_pages = count_mem_pages(p);
+        
+        cprintf("%d %d\n", p->pid, num_pages);
+        // cprintf("rss is %d %d\n",p->pid,p->rss);
       }
     }
   }
+  release(&ptable.lock);
 }
 
 void
@@ -108,6 +108,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->rss=0;
 
   release(&ptable.lock);
 
@@ -214,10 +215,12 @@ fork(void)
     kfree(np->kstack);
     np->kstack = 0;
     np->state = UNUSED;
+    // np->rss=0;
     return -1;
   }
   np->sz = curproc->sz;
   np->parent = curproc;
+  np->rss=curproc->rss;
   *np->tf = *curproc->tf;
 
   // Clear %eax so that fork returns 0 in the child.
@@ -244,6 +247,7 @@ fork(void)
 // Exit the current process.  Does not return.
 // An exited process remains in the zombie state
 // until its parent calls wait() to find out it exited.
+extern int clear_disk_of_proc(int);
 void
 exit(void)
 {
@@ -283,6 +287,7 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
+  clear_disk_of_proc(curproc->pid);
   sched();
   panic("zombie exit");
 }
@@ -551,4 +556,18 @@ procdump(void)
     }
     cprintf("\n");
   }
+}
+
+struct proc* choose_victim()
+{
+  struct proc* temp=0;
+  struct proc* p;
+  acquire(&ptable.lock);
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state!=RUNNING && p->state!=SLEEPING) continue;
+    if(!temp) temp=p;
+    else if(temp->rss<p->rss || (temp->rss==p->rss && p->pid<temp->pid)) temp=p;
+  }
+  release(&ptable.lock);
+  return temp;
 }

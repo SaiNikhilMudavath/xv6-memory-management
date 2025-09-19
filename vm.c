@@ -54,6 +54,25 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
   return &pgtab[PTX(va)];
 }
 
+int
+count_mem_pages(struct proc *p)
+{
+  pde_t *pgdir = p->pgdir;
+  int count = 0;
+
+  // Scan every user virtual‐address page from 0 up to p->sz
+  for (uint va = 0; va < p->sz; va += PGSIZE) {
+    pte_t *pte = walkpgdir(pgdir, (void*)va, 0);
+    if (pte && (*pte & PTE_P))
+      count++;
+  }
+  return count;
+}
+pte_t* proxytowalkpgdir(pde_t *pgdir, const void *va, int alloc)
+{
+  return walkpgdir(pgdir,va,alloc);
+}
+
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
 // be page-aligned.
@@ -218,6 +237,7 @@ loaduvm(pde_t *pgdir, char *addr, struct inode *ip, uint offset, uint sz)
 
 // Allocate page tables and physical memory to grow process from oldsz to
 // newsz, which need not be page aligned.  Returns new size or 0 on error.
+extern void handle_low_mem(void);
 int
 allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 {
@@ -231,11 +251,24 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
 
   a = PGROUNDUP(oldsz);
   for(; a < newsz; a += PGSIZE){
+    // handle_low_mem();
     mem = kalloc();
+    // if(mem == 0){
+    //   cprintf("allocuvm out of memory\n");
+    //   deallocuvm(pgdir, newsz, oldsz);
+    //   return 0;
+    // }
+    
     if(mem == 0){
-      cprintf("allocuvm out of memory\n");
-      deallocuvm(pgdir, newsz, oldsz);
-      return 0;
+      cprintf("inside mem == 0\n");
+      handle_low_mem();
+      while(mem==0) mem = kalloc();
+      if(mem == 0)
+      {
+        cprintf("allocuvm out of memory even after swap\n");
+        deallocuvm(pgdir, newsz, oldsz);
+        return 0;
+      }
     }
     memset(mem, 0, PGSIZE);
     if(mappages(pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
@@ -244,6 +277,7 @@ allocuvm(pde_t *pgdir, uint oldsz, uint newsz)
       kfree(mem);
       return 0;
     }
+    myproc()->rss++;
   }
   return newsz;
 }

@@ -14,9 +14,11 @@ extern char end[]; // first address after kernel loaded from ELF file
 // Bootstrap processor starts running C code here.
 // Allocate a real stack and switch to it, first
 // doing some setup required for memory allocator to work.
+extern void init_swap_table(void);
 int
 main(void)
 {
+  init_swap_table();
   kinit1(end, P2V(4*1024*1024)); // phys page allocator
   kvmalloc();      // kernel page table
   mpinit();        // detect other processors

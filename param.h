@@ -12,3 +12,8 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 
+#define NSWAP        800 
+#define BLOCKSPERSLOT 8
+#define SWAPBLOCKS    (NSWAP*BLOCKSPERSLOT)
+#undef FSSIZE
+#define FSSIZE       (1000+SWAPBLOCKS) 

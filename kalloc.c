@@ -94,3 +94,28 @@ kalloc(void)
   return (char*)r;
 }
 
+// int get_free_pages(void)
+// {
+  
+//     int temp=0;
+//     struct run* r;
+//     acquire(&kmem.lock);
+//     for(r=kmem.freelist;r;r=r->next) temp++;
+//     release(&kmem.lock);
+//     return temp;
+// }
+
+int get_free_pages(void)
+{
+    int temp=0;
+    struct run* r;
+
+    acquire(&kmem.lock);
+    r=kmem.freelist;
+    while(r)
+    {
+      temp++;r=r->next;
+    }
+    release(&kmem.lock);
+    return temp;
+}

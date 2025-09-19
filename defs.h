@@ -10,6 +10,7 @@ struct sleeplock;
 struct stat;
 struct superblock;
 
+int get_free_pages(void);
 // bio.c
 void            binit(void);
 struct buf*     bread(uint, uint);

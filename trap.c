@@ -46,6 +46,7 @@ trap(struct trapframe *tf)
     return;
   }
 
+  extern void handle_page_fault(struct trapframe*);
   switch(tf->trapno){
   case T_IRQ0 + IRQ_TIMER:
     if(cpuid() == 0){
@@ -77,6 +78,9 @@ trap(struct trapframe *tf)
             cpuid(), tf->cs, tf->eip);
     lapiceoi();
     break;
+  case T_PGFLT:
+    handle_page_fault(tf);
+    return;
 
   //PAGEBREAK: 13
   default:
